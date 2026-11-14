@@ -1,0 +1,6 @@
+{
+  "name": "Metrograph",
+  "description": "Red del Metro CDMX con grafo ponderado, algoritmo de Dijkstra, cálculo de tiempos en minutos y segundos, y matrices de adyacencia, incidencia y distancias.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
