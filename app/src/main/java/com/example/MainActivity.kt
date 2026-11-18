@@ -1,327 +1,267 @@
 package com.example
 
-import android.media.MediaPlayer
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Analytics
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.Hub
-import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.Map
-import androidx.compose.material.icons.outlined.Analytics
-import androidx.compose.material.icons.outlined.Hub
-import androidx.compose.material.icons.outlined.Map
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.InputChip
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.ui.components.MetroLineBadge
-import com.example.ui.components.RouteDetailSheet
-import com.example.ui.components.StationPickerSheet
-import com.example.ui.screens.MapRouteScreen
-import com.example.ui.screens.MatricesScreen
-import com.example.ui.screens.NetworkExplorerScreen
-import com.example.ui.theme.MetroGrafoTheme
-import com.example.ui.theme.MetroOrange
-import com.example.viewmodel.AppTab
-import com.example.viewmodel.MatrixScope
-import com.example.viewmodel.MetroViewModel
-import com.example.viewmodel.SelectionSlot
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.example.tracking.NotificationHelper
+import com.example.ui.AstrolabioViewModel
+import com.example.ui.RouteDetailUiState
+import com.example.ui.screens.ActiveTripScreen
+import com.example.ui.screens.HomeScreen
+import com.example.ui.screens.RouteDetailScreen
+import com.example.ui.screens.SettingsScreen
+import com.example.ui.screens.SimulatorScreen
+import com.example.ui.theme.AstrolabioTheme
+
+private const val ROUTE_HOME = "home"
+private const val ROUTE_DETAIL = "route_detail/{routeId}"
+private const val ROUTE_ACTIVE_TRIP = "active_trip"
+private const val ROUTE_SIMULATOR = "simulator"
+private const val ROUTE_SETTINGS = "settings"
 
 class MainActivity : ComponentActivity() {
-  override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
-    enableEdgeToEdge()
-    setContent {
-      val systemDark = isSystemInDarkTheme()
-      var useDarkTheme by rememberSaveable { mutableStateOf(true) }
-      // Initialize once with dark transit control mode, user can toggle freely
-      MetroGrafoTheme(darkTheme = useDarkTheme) {
-        MetroGrafoApp(
-          isDarkTheme = useDarkTheme,
-          onToggleTheme = { useDarkTheme = !useDarkTheme },
-        )
-      }
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        NotificationHelper.ensureChannel(this)
+        setContent {
+            AstrolabioTheme {
+                AstrolabioApp()
+            }
+        }
     }
-  }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MetroGrafoApp(
-  isDarkTheme: Boolean,
-  onToggleTheme: () -> Unit,
-  viewModel: MetroViewModel = viewModel(),
+fun AstrolabioApp(
+    viewModel: AstrolabioViewModel = viewModel()
 ) {
-  val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-  val context = LocalContext.current
-  var activePlayer by remember { mutableStateOf<MediaPlayer?>(null) }
+    val navController = rememberNavController()
+    val context = LocalContext.current
+    val routes by viewModel.routesUiState.collectAsStateWithLifecycle()
+    val activeTrip by viewModel.activeTripUiState.collectAsStateWithLifecycle()
+    val resumableTrip by viewModel.resumableTripState.collectAsStateWithLifecycle()
 
-  DisposableEffect(Unit) {
-    onDispose {
-      activePlayer?.runCatching {
-        if (isPlaying) stop()
-        release()
-      }
-      activePlayer = null
+    var pendingAfterPermission by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { _ ->
+        pendingAfterPermission?.invoke()
+        pendingAfterPermission = null
     }
-  }
 
-  LaunchedEffect(viewModel, context) {
-    viewModel.routeCalculatedEvents.collect {
-      activePlayer?.runCatching {
-        if (isPlaying) stop()
-        release()
-      }
-      activePlayer = null
-      runCatching {
-        MediaPlayer.create(context.applicationContext, R.raw.tururu_metro_cdmx)?.apply {
-          setOnCompletionListener { player ->
-            player.release()
-            if (activePlayer === player) {
-              activePlayer = null
+    fun runWithNotificationPermission(action: () -> Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                pendingAfterPermission = action
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                return
             }
-          }
-          activePlayer = this
-          start()
         }
-      }
+        action()
     }
-  }
 
-  if (uiState.currentTab != AppTab.MAP) {
-    BackHandler {
-      viewModel.selectTab(AppTab.MAP)
-    }
-  }
-
-  BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-    val useNavigationRail = maxWidth >= 600.dp
-
-    Scaffold(
-      modifier = Modifier.fillMaxSize(),
-      contentWindowInsets = WindowInsets.safeDrawing,
-      topBar = {
-        TopAppBar(
-          title = {
-            Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
-              Text(
-                text = "Metrograph",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-              )
-              Text(
-                text = "CDMX",
-                style = MaterialTheme.typography.titleLarge,
-                color = MetroOrange,
-                fontWeight = FontWeight.Bold,
-              )
-            }
-          },
-          actions = {
-            val focused = uiState.focusedLine
-            if (focused != null) {
-              InputChip(
-                selected = true,
-                onClick = { viewModel.setFocusedLine(null) },
-                leadingIcon = { MetroLineBadge(line = focused, size = 18.dp) },
-                label = { Text("L${focused.code}") },
-                trailingIcon = {
-                  Icon(
-                    Icons.Filled.Close,
-                    contentDescription = "Quitar filtro de línea",
-                  )
+    NavHost(
+        navController = navController,
+        startDestination = ROUTE_HOME,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        composable(ROUTE_HOME) {
+            HomeScreen(
+                routes = routes,
+                activeTrip = activeTrip,
+                resumableTrip = resumableTrip,
+                onCreateRouteAndStart = { name, initialSegments, setup ->
+                    runWithNotificationPermission {
+                        viewModel.createRouteAndStartTrip(name, initialSegments, setup) {
+                            navController.navigate(ROUTE_ACTIVE_TRIP) {
+                                launchSingleTop = true
+                            }
+                        }
+                    }
                 },
-                modifier = Modifier.padding(end = 4.dp),
-              )
-            }
-            IconButton(
-              onClick = onToggleTheme,
-              modifier = Modifier.testTag("theme_toggle_button"),
-            ) {
-              Icon(
-                imageVector = if (isDarkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode,
-                contentDescription = if (isDarkTheme) "Cambiar a tema claro" else "Cambiar a tema oscuro",
-              )
-            }
-          },
-          colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-          ),
-        )
-      },
-      bottomBar = {
-        if (!useNavigationRail) {
-          NavigationBar(
-            containerColor = MaterialTheme.colorScheme.surface,
-          ) {
-            AppTab.entries.forEach { tab ->
-              val selected = uiState.currentTab == tab
-              NavigationBarItem(
-                selected = selected,
-                onClick = { viewModel.selectTab(tab) },
-                icon = {
-                  Icon(
-                    imageVector = tabIcon(tab, selected),
-                    contentDescription = tab.label,
-                  )
+                onStartRouteTrip = { routeId, setup ->
+                    runWithNotificationPermission {
+                        viewModel.startTripForRoute(routeId, setup) {
+                            navController.navigate(ROUTE_ACTIVE_TRIP) {
+                                launchSingleTop = true
+                            }
+                        }
+                    }
                 },
-                label = { Text(tab.label) },
-                modifier = Modifier.testTag("nav_tab_${tab.name.lowercase()}"),
-              )
-            }
-          }
-        }
-      },
-    ) { innerPadding ->
-      Row(
-        modifier = Modifier
-          .fillMaxSize()
-          .padding(innerPadding),
-      ) {
-        if (useNavigationRail) {
-          NavigationRail(
-            modifier = Modifier.fillMaxHeight(),
-            containerColor = MaterialTheme.colorScheme.surface,
-          ) {
-            AppTab.entries.forEach { tab ->
-              val selected = uiState.currentTab == tab
-              NavigationRailItem(
-                selected = selected,
-                onClick = { viewModel.selectTab(tab) },
-                icon = {
-                  Icon(
-                    imageVector = tabIcon(tab, selected),
-                    contentDescription = tab.label,
-                  )
+                onOpenRoutePrediction = { routeId ->
+                    viewModel.resetSimulationToNow(routeId)
+                    navController.navigate("route_detail/$routeId")
                 },
-                label = { Text(tab.label) },
-                modifier = Modifier.testTag("nav_rail_${tab.name.lowercase()}"),
-              )
-            }
-          }
+                onOpenSimulator = {
+                    viewModel.resetSimulationToNow()
+                    navController.navigate(ROUTE_SIMULATOR) {
+                        launchSingleTop = true
+                    }
+                },
+                onOpenSettings = {
+                    navController.navigate(ROUTE_SETTINGS) {
+                        launchSingleTop = true
+                    }
+                },
+                onOpenActiveTrip = {
+                    navController.navigate(ROUTE_ACTIVE_TRIP) {
+                        launchSingleTop = true
+                    }
+                },
+                onResumeSuspendedTrip = {
+                    runWithNotificationPermission {
+                        viewModel.resumeSuspendedTrip {
+                            navController.navigate(ROUTE_ACTIVE_TRIP) {
+                                launchSingleTop = true
+                            }
+                        }
+                    }
+                },
+                onDiscardSuspendedTrip = {
+                    viewModel.discardSuspendedTrip()
+                }
+            )
         }
 
-        Box(modifier = Modifier.weight(1f).fillMaxSize()) {
-          when (uiState.currentTab) {
-            AppTab.MAP -> {
-              MapRouteScreen(
-                uiState = uiState,
-                onOpenPicker = viewModel::openStationPicker,
-                onStationTappedOnMap = viewModel::onStationTappedOnMap,
-                onSwapStations = viewModel::swapStations,
-                onClearSelection = viewModel::clearSelection,
-                onToggleNames = viewModel::toggleStationNames,
-                onToggleWavefront = viewModel::toggleDijkstraWavefront,
-                onSelectPreset = viewModel::selectPresetRoute,
-                onOpenRouteDetail = { viewModel.setShowRouteDetailSheet(true) },
-                onOpenMatricesForRoute = {
-                  viewModel.selectMatrixScope(MatrixScope.ACTIVE_ROUTE)
-                  viewModel.selectTab(AppTab.MATRICES)
-                },
-              )
-            }
-
-            AppTab.MATRICES -> {
-              MatricesScreen(
-                uiState = uiState,
-                onSelectMatrixType = viewModel::selectMatrixType,
-                onSelectMatrixScope = viewModel::selectMatrixScope,
-                onToggleUnitSeconds = viewModel::toggleMatrixUnitSeconds,
-                onToggleIncidenceWeighted = viewModel::toggleIncidenceWeighted,
-                onUpdateFilterQuery = viewModel::updateMatrixFilterQuery,
-                onSelectMatrixCell = viewModel::selectMatrixCell,
-                onCalculateRouteForPair = viewModel::selectPresetRoute,
-              )
-            }
-
-            AppTab.NETWORK -> {
-              NetworkExplorerScreen(
-                uiState = uiState,
-                onFocusLineOnMap = { line ->
-                  viewModel.setFocusedLine(line)
-                  viewModel.selectTab(AppTab.MAP)
-                },
-                onSelectStationOnMap = { station ->
-                  viewModel.onStationTappedOnMap(station)
-                  viewModel.selectTab(AppTab.MAP)
-                },
-                onPresetRoute = viewModel::selectPresetRoute,
-              )
-            }
-          }
+        composable(ROUTE_SIMULATOR) {
+            val simulatorState by viewModel.simulatorUiState.collectAsStateWithLifecycle()
+            SimulatorScreen(
+                uiState = simulatorState,
+                onBack = { navController.popBackStack() },
+                onSelectRoute = { routeId -> viewModel.selectSimulatorRoute(routeId) },
+                onUpdateSimulation = viewModel::updateSimulation,
+                onResetToNow = { viewModel.resetSimulationToNow() },
+                onStartTripWithSimulatedParams = { routeId, setup ->
+                    runWithNotificationPermission {
+                        viewModel.startTripForRoute(routeId, setup) {
+                            navController.navigate(ROUTE_ACTIVE_TRIP) {
+                                launchSingleTop = true
+                            }
+                        }
+                    }
+                }
+            )
         }
-      }
+
+        composable(ROUTE_SETTINGS) {
+            val settingsState by viewModel.settingsUiState.collectAsStateWithLifecycle()
+            SettingsScreen(
+                uiState = settingsState,
+                onBack = { navController.popBackStack() },
+                onExportBackupJson = { viewModel.exportBackupJson() },
+                onRestoreBackupJson = { jsonText, replaceExisting ->
+                    viewModel.restoreBackupJson(jsonText, replaceExisting)
+                }
+            )
+        }
+
+        composable(
+            route = ROUTE_DETAIL,
+            arguments = listOf(navArgument("routeId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val routeId = backStackEntry.arguments?.getLong("routeId") ?: return@composable
+            val detailFlow = remember(routeId) { viewModel.observeRouteDetail(routeId) }
+            val detailState by detailFlow.collectAsStateWithLifecycle(initialValue = RouteDetailUiState())
+
+            RouteDetailScreen(
+                uiState = detailState,
+                onBack = { navController.popBackStack() },
+                onUpdateSimulation = viewModel::updateSimulation,
+                onResetSimulationToNow = { viewModel.resetSimulationToNow(routeId) },
+                onStartTripWithCurrentParams = { setup ->
+                    runWithNotificationPermission {
+                        viewModel.startTripForRoute(routeId, setup) {
+                            navController.navigate(ROUTE_ACTIVE_TRIP) {
+                                launchSingleTop = true
+                            }
+                        }
+                    }
+                },
+                onUpdateSegmentTemplates = { segNames ->
+                    viewModel.updateSegmentTemplates(routeId, segNames)
+                },
+                onUpdateTripRecord = { tripId, dir, rain, protest, accident, vac, ride, custom, durSec ->
+                    viewModel.updateTripRecord(
+                        tripId = tripId,
+                        direction = dir,
+                        hasRain = rain,
+                        hasProtest = protest,
+                        hasAccident = accident,
+                        isVacation = vac,
+                        hasRide = ride,
+                        customIncident = custom,
+                        totalDurationSec = durSec
+                    )
+                },
+                onDeleteTripRecord = { tripId ->
+                    viewModel.deleteTripRecord(tripId)
+                },
+                onDeleteRoute = {
+                    viewModel.deleteRoute(routeId) {
+                        navController.popBackStack(ROUTE_HOME, inclusive = false)
+                    }
+                }
+            )
+        }
+
+        composable(ROUTE_ACTIVE_TRIP) {
+            LaunchedEffect(activeTrip) {
+                if (activeTrip == null && navController.currentDestination?.route == ROUTE_ACTIVE_TRIP) {
+                    // Allows clean return if completed via notification
+                }
+            }
+            ActiveTripScreen(
+                uiState = activeTrip,
+                onBack = { navController.popBackStack() },
+                onMarkSegment = { customName ->
+                    viewModel.markSegmentPartition(customName)
+                },
+                onUndoLastSegment = {
+                    viewModel.undoLastSegmentPartition()
+                },
+                onCompleteTrip = { finalName ->
+                    viewModel.completeTrip(finalName) {
+                        navController.popBackStack(ROUTE_HOME, inclusive = false)
+                    }
+                },
+                onCancelTrip = {
+                    viewModel.cancelActiveTrip {
+                        navController.popBackStack(ROUTE_HOME, inclusive = false)
+                    }
+                },
+                onUpdateIncidents = { rain, protest, accident, vacation, ride, custom ->
+                    viewModel.updateActiveTripConditions(rain, protest, accident, vacation, ride, custom)
+                }
+            )
+        }
     }
-  }
-
-  // Station Picker Modal Bottom Sheet
-  val pickerSlot = uiState.pickerSlot
-  if (pickerSlot != null) {
-    val excludeIdx = if (pickerSlot == SelectionSlot.ORIGIN) {
-      uiState.destination?.index
-    } else {
-      uiState.origin?.index
-    }
-    StationPickerSheet(
-      slot = pickerSlot,
-      stations = uiState.graph.nodes,
-      excludeStationIndex = excludeIdx,
-      onSelectStation = viewModel::onStationPickedFromPicker,
-      onDismiss = viewModel::closeStationPicker,
-    )
-  }
-
-  // Route Breakdown & Dijkstra Trace Sheet
-  val routeResult = uiState.dijkstraResult
-  if (uiState.showRouteDetailSheet && routeResult != null) {
-    RouteDetailSheet(
-      result = routeResult,
-      onDismiss = { viewModel.setShowRouteDetailSheet(false) },
-    )
-  }
-}
-
-private fun tabIcon(tab: AppTab, selected: Boolean) = when (tab) {
-  AppTab.MAP -> if (selected) Icons.Filled.Map else Icons.Outlined.Map
-  AppTab.MATRICES -> if (selected) Icons.Filled.Analytics else Icons.Outlined.Analytics
-  AppTab.NETWORK -> if (selected) Icons.Filled.Hub else Icons.Outlined.Hub
 }

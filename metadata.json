@@ -1,6 +1,6 @@
 {
-  "name": "Metrograph",
-  "description": "Red del Metro CDMX con grafo ponderado, algoritmo de Dijkstra, cálculo de tiempos en minutos y segundos, y matrices de adyacencia, incidencia y distancias.",
+  "name": "Estroncio",
+  "description": "Predictor de tiempos de llegada en rutas con Filtro de Kalman Adaptativo Robusto (M-Estimador) y estética inspirada en la historia de la astronomía.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

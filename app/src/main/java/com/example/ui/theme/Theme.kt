@@ -1,64 +1,86 @@
 package com.example.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 
-private val MetroDarkColorScheme = darkColorScheme(
-  primary = MetroOrange,
-  onPrimary = Color(0xFF1A0900),
-  primaryContainer = MetroOrangeContainer,
-  onPrimaryContainer = Color(0xFFFFDCC2),
-  secondary = MetroCyan,
-  onSecondary = Color(0xFF002026),
-  secondaryContainer = MetroCyanContainer,
-  onSecondaryContainer = Color(0xFFB8F3FF),
-  tertiary = MetroEmerald,
-  onTertiary = Color(0xFF002114),
-  background = SlateBgDark,
-  onBackground = TextPrimaryDark,
-  surface = SlateSurfaceDark,
-  onSurface = TextPrimaryDark,
-  surfaceVariant = SlateSurfaceElevatedDark,
-  onSurfaceVariant = TextSecondaryDark,
-  outline = SlateBorderDark,
-  outlineVariant = Color(0xFF1E293B),
+private val ObservatoryDarkColorScheme = darkColorScheme(
+    primary = CelestePrimary,
+    onPrimary = NightSkyDeep,
+    primaryContainer = Color(0xFF123B5C),
+    onPrimaryContainer = Color(0xFFC9EEFF),
+    secondary = BrassGold,
+    onSecondary = NightSkyDeep,
+    secondaryContainer = Color(0xFF3B2F16),
+    onSecondaryContainer = Color(0xFFFFE5AE),
+    tertiary = AuroraEmerald,
+    onTertiary = NightSkyDeep,
+    background = NightSkyDeep,
+    onBackground = StarlightIvory,
+    surface = ObservatoryNavy,
+    onSurface = StarlightIvory,
+    surfaceVariant = AstrolabeSurface,
+    onSurfaceVariant = CelestialSlate,
+    surfaceContainerLow = ObservatoryNavy,
+    surfaceContainer = AstrolabeSurface,
+    surfaceContainerHigh = AstrolabeSurfaceHigh,
+    outline = MeridianLine,
+    outlineVariant = Color(0xFF1E3A63),
+    error = MarsTerracotta,
+    onError = NightSkyDeep
 )
 
-private val MetroLightColorScheme = lightColorScheme(
-  primary = Color(0xFFEA580C),
-  onPrimary = Color.White,
-  primaryContainer = Color(0xFFFFEDD5),
-  onPrimaryContainer = Color(0xFF431407),
-  secondary = Color(0xFF0891B2),
-  onSecondary = Color.White,
-  secondaryContainer = Color(0xFFCFFAFE),
-  onSecondaryContainer = Color(0xFF083344),
-  tertiary = Color(0xFF059669),
-  onTertiary = Color.White,
-  background = BlueprintBgLight,
-  onBackground = TextPrimaryLight,
-  surface = BlueprintSurfaceLight,
-  onSurface = TextPrimaryLight,
-  surfaceVariant = BlueprintSurfaceVariantLight,
-  onSurfaceVariant = TextSecondaryLight,
-  outline = BlueprintBorderLight,
-  outlineVariant = Color(0xFFE2E8F0),
+private val ParchmentLightColorScheme = lightColorScheme(
+    primary = CeruleanPrimary,
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFCBE8FA),
+    onPrimaryContainer = Color(0xFF062C44),
+    secondary = BurnishedBronze,
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFF3E2C4),
+    onSecondaryContainer = Color(0xFF382300),
+    tertiary = OliveAstrolabe,
+    onTertiary = Color.White,
+    background = ParchmentPaper,
+    onBackground = DeepIndigoInk,
+    surface = VellumSurface,
+    onSurface = DeepIndigoInk,
+    surfaceVariant = VellumCard,
+    onSurfaceVariant = IndigoMutedInk,
+    surfaceContainerLow = VellumSurface,
+    surfaceContainer = VellumCard,
+    surfaceContainerHigh = Color(0xFFC8E0F2),
+    outline = VellumBorder,
+    outlineVariant = Color(0xFFCBE0F0),
+    error = CrimsonWax,
+    onError = Color.White
+)
+
+val AstrolabioShapes = Shapes(
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(22.dp),
+    extraLarge = RoundedCornerShape(28.dp)
 )
 
 @Composable
-fun MetroGrafoTheme(
-  darkTheme: Boolean = isSystemInDarkTheme(),
-  content: @Composable () -> Unit,
+fun AstrolabioTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit
 ) {
-  val colorScheme = if (darkTheme) MetroDarkColorScheme else MetroLightColorScheme
+    val colorScheme = if (darkTheme) ObservatoryDarkColorScheme else ParchmentLightColorScheme
 
-  MaterialTheme(
-    colorScheme = colorScheme,
-    typography = Typography,
-    content = content,
-  )
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = AstrolabioTypography,
+        shapes = AstrolabioShapes,
+        content = content
+    )
 }

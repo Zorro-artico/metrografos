@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Metrograph"
+rootProject.name = "Estroncio"
 
 include(":app")

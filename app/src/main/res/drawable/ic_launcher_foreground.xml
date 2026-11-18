@@ -3,6 +3,6 @@
     <item
         android:width="66dp"
         android:height="66dp"
-        android:drawable="@drawable/metro_grafo_user_icon"
+        android:drawable="@drawable/estroncio_celeste_icon_1794975831914"
         android:gravity="center" />
 </layer-list>

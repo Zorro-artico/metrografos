@@ -1,3 +1,5 @@
 <resources>
-    <string name="app_name">Metrograph</string>
+    <string name="app_name">Estroncio</string>
+    <string name="notification_channel_name">Travesía en curso</string>
+    <string name="notification_channel_desc">Muestra la hora estimada de llegada y controles rápidos de segmentos</string>
 </resources>
